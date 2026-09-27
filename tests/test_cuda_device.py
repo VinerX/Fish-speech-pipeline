@@ -39,9 +39,15 @@ class CudaDeviceTests(unittest.TestCase):
                 for node in launch.body
                 if isinstance(node, ast.FunctionDef) and node.name == "worker"
             )
-            first_call = worker.body[0].value
-            self.assertIsInstance(first_call, ast.Call)
-            self.assertEqual(first_call.func.id, "set_cuda_device_for_thread")
+            calls = {
+                node.func.id: node.lineno
+                for node in ast.walk(worker)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            }
+            self.assertLess(
+                calls["set_cuda_device_for_thread"],
+                calls["load_model"],
+            )
 
     def test_selects_cuda_device_on_calling_thread(self):
         selected = SimpleNamespace(type="cuda", index=1)
@@ -62,6 +68,16 @@ class CudaDeviceTests(unittest.TestCase):
         )
 
         set_cuda_device_for_thread(torch_module, "cpu")
+
+        torch_module.cuda.set_device.assert_not_called()
+
+    def test_leaves_unspecified_cuda_device_unmodified(self):
+        torch_module = SimpleNamespace(
+            device=Mock(return_value=SimpleNamespace(type="cuda", index=None)),
+            cuda=SimpleNamespace(set_device=Mock()),
+        )
+
+        set_cuda_device_for_thread(torch_module, "cuda")
 
         torch_module.cuda.set_device.assert_not_called()
 

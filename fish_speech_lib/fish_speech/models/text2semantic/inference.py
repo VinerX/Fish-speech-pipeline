@@ -56,6 +56,9 @@ from fish_speech_lib.fish_speech.models.text2semantic.llama import (
     DualARTransformer,
     NaiveTransformer,
 )
+from fish_speech_lib.fish_speech.models.text2semantic.cuda_device import (
+    set_cuda_device_for_thread,
+)
 
 
 def multinomial_sample_one_no_sync(
@@ -921,6 +924,7 @@ def launch_thread_safe_queue(
     init_event = threading.Event()
 
     def worker():
+        set_cuda_device_for_thread(torch, device)
         model, decode_one_token = load_model(
             checkpoint_path, device, precision, compile=compile
         )
@@ -969,6 +973,7 @@ def launch_thread_safe_queue_agent(
     config = BaseModelArgs.from_pretrained(checkpoint_path)
 
     def worker():
+        set_cuda_device_for_thread(torch, device)
         model, decode_one_token = load_model(
             checkpoint_path, device, precision, compile=compile, is_agent=True
         )
